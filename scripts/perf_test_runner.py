@@ -51,8 +51,7 @@ def mean(data):
 
 def sum_of_square_deviations(data, c):
     """Return sum of square deviations of sequence data."""
-    ss = sum((float(x) - c)**2 for x in data)
-    return ss
+    return sum((float(x) - c)**2 for x in data)
 
 
 def coefficient_of_variation(data):
@@ -98,36 +97,37 @@ for path in perftests_paths:
 
 perftests_path = newest_binary
 
-if perftests_path == None or not os.path.exists(perftests_path):
-    print('Cannot find Release %s!' % binary_name)
+if perftests_path is None or not os.path.exists(perftests_path):
+    print(f'Cannot find Release {binary_name}!')
     sys.exit(1)
 
 if len(sys.argv) >= 2:
     test_name = sys.argv[1]
 
-print('Using test executable: ' + perftests_path)
-print('Test name: ' + test_name)
+print(f'Using test executable: {perftests_path}')
+print(f'Test name: {test_name}')
 
 
 def get_results(metric, extra_args=[]):
     process = subprocess.Popen(
-        [perftests_path, '--gtest_filter=' + test_name] + extra_args,
+        [perftests_path, f'--gtest_filter={test_name}'] + extra_args,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
+        stderr=subprocess.PIPE,
+    )
     output, err = process.communicate()
 
     output_string = output.decode('utf-8')
 
     m = re.search(r"Running (\d+) tests", output_string)
-    if m and int(m.group(1)) > 1:
+    if m and int(m[1]) > 1:
         print("Found more than one test result in output:")
         print(output_string)
         sys.exit(3)
 
-    pattern = metric + r'.*= ([0-9.]+)'
+    pattern = f'{metric}.*= ([0-9.]+)'
     m = re.findall(pattern, output_string)
     if not m:
-        print("Did not find the metric '%s' in the test output:" % metric)
+        print(f"Did not find the metric '{metric}' in the test output:")
         print(output_string)
         sys.exit(1)
 
@@ -139,7 +139,7 @@ steps = get_results("steps", ["--calibration"])[0]
 print("running with %d steps." % steps)
 
 # Loop 'max_experiments' times, running the tests.
-for experiment in range(max_experiments):
+for _ in range(max_experiments):
     experiment_scores = get_results(metric, ["--override-steps", str(steps)])
 
     for score in experiment_scores:

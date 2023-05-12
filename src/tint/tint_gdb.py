@@ -77,7 +77,7 @@ class UtilsSlicePrinter(Printer):
         return (self.data + index).dereference().cast(self.elem_type)
 
     def to_string(self):
-        return 'length={} capacity={}'.format(self.len, self.cap)
+        return f'length={self.len} capacity={self.cap}'
 
     def members(self):
         if _DISPLAY_MEMBERS_AS_CHILDREN:
@@ -89,8 +89,7 @@ class UtilsSlicePrinter(Printer):
             return []
 
     def children(self):
-        for m in self.members():
-            yield m
+        yield from self.members()
         for i in range(self.len):
             yield str(i), self.value_at(i)
 
@@ -114,15 +113,16 @@ class UtilsVectorPrinter(Printer):
         return UtilsSlicePrinter(self.slice)
 
     def to_string(self):
-        return 'heap={} {}'.format(self.using_heap, self.slice)
+        return f'heap={self.using_heap} {self.slice}'
 
     def members(self):
-        if _DISPLAY_MEMBERS_AS_CHILDREN:
-            return [
+        return (
+            [
                 ('heap', self.using_heap),
             ]
-        else:
-            return []
+            if _DISPLAY_MEMBERS_AS_CHILDREN
+            else []
+        )
 
     def children(self):
         return chain(self.members(), self.slice_printer().children())
@@ -144,15 +144,16 @@ class UtilsVectorRefPrinter(Printer):
         self.can_move = self.val['can_move_']
 
     def to_string(self):
-        return 'can_move={} {}'.format(self.can_move, self.slice)
+        return f'can_move={self.can_move} {self.slice}'
 
     def members(self):
-        if _DISPLAY_MEMBERS_AS_CHILDREN:
-            return [
+        return (
+            [
                 ('can_move', self.can_move),
             ]
-        else:
-            return []
+            if _DISPLAY_MEMBERS_AS_CHILDREN
+            else []
+        )
 
     def children(self):
         return chain(self.members(), UtilsSlicePrinter(self.slice).children())
@@ -179,7 +180,7 @@ class UtilsHashmapBasePrinter(Printer):
             v = self.slice.value_at(slot)
             if v['hash'] != 0:
                 length += 1
-        return 'length={}'.format(length)
+        return f'length={length}'
 
     def children(self):
         for slot in range(0, self.slice.length()):

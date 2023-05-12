@@ -47,7 +47,7 @@ def _DoCommonChecks(input_api, output_api):
             stderr=input_api.subprocess.PIPE,
             cwd=input_api.change.RepositoryRoot())
     except input_api.subprocess.CalledProcessError as e:
-        results.append(output_api.PresubmitError('%s' % (e, )))
+        results.append(output_api.PresubmitError(f'{e}'))
     return results
 
 

@@ -31,16 +31,15 @@ def extract():
     in_spirv = False
     parts = []
     for line in sys.stdin:
-        run_match = re.match('\[ RUN\s+\]\s+(\S+)', line)
-        if run_match:
-            test_name = run_match.group(1)
+        if run_match := re.match('\[ RUN\s+\]\s+(\S+)', line):
+            test_name = run_match[1]
             test_name = re.sub('[^0-9a-zA-Z]', '_', test_name) + '.spvasm'
         elif re.match('BEGIN ConvertedOk', line):
             parts = []
             in_spirv = True
         elif re.match('END ConvertedOk', line):
             with open(test_name, 'w') as f:
-                f.write('; Test: ' + test_name + '\n')
+                f.write(f'; Test: {test_name}' + '\n')
                 for l in parts:
                     f.write(l)
                 f.close()

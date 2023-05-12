@@ -47,9 +47,9 @@ def expand_query(query):
 
 
 def generate_expectations(queries, tags, results, bug):
-    tags = '[ %s ] ' % ' '.join(tags) if tags else ''
-    results = ' [ %s ]' % ' '.join(results)
-    bug = bug + ' ' if bug else ''
+    tags = f"[ {' '.join(tags)} ] " if tags else ''
+    results = f" [ {' '.join(results)} ]"
+    bug = f'{bug} ' if bug else ''
     content = ''
     for q in queries:
         test_names = expand_query(q)

@@ -20,9 +20,7 @@ from generator_lib import Generator, run_generator, FileRender
 
 
 def parse_mask(mask):
-    if mask:
-        return int(mask, 0)
-    return 0xffffffff
+    return int(mask, 0) if mask else 0xffffffff
 
 
 class Name:
@@ -75,11 +73,13 @@ class Architecture:
             device_num = int(device, 0)
 
             # Don't allow duplicate entries
-            assert device not in self.devices, 'Architecture "{}" contained duplicate deviceID "{}"'.format(
-                self.name.get(), device)
+            assert (
+                device not in self.devices
+            ), f'Architecture "{self.name.get()}" contained duplicate deviceID "{device}"'
             # Ensure that all device IDs don't contain bits outside the mask
-            assert device_num & mask_num == device_num, 'Architecture "{}" contained deviceID "{}" which doesn\'t match the given mask of "{}"'.format(
-                self.name.get(), device, mask)
+            assert (
+                device_num & mask_num == device_num
+            ), f"""Architecture "{self.name.get()}" contained deviceID "{device}" which doesn\'t match the given mask of "{mask}\""""
 
             self.devices.append(device)
 
@@ -107,9 +107,9 @@ class DeviceSet:
                 # Validate that deviceIDs are only allowed to be in one Architecture at a time
                 for other_architecture in self.architectures:
                     for device in architecture.devices:
-                        assert device not in other_architecture.devices, 'Architectures "{}" and "{}" both contain deviceID "{}"'.format(
-                            architecture.name.get(),
-                            other_architecture.name.get(), device)
+                        assert (
+                            device not in other_architecture.devices
+                        ), f'Architectures "{architecture.name.get()}" and "{other_architecture.name.get()}" both contain deviceID "{device}"'
 
                 self.architectures.append(architecture)
 
@@ -121,14 +121,12 @@ class DeviceSet:
             for architecture in self.architectures:
                 for device in architecture.devices:
                     device_num = int(device, 0) & combined_mask
-                    assert device_num != other_device_num, 'DeviceID "{}" & mask "{}" conflicts with deviceId "{}" & mask "{}" in architecture "{}"'.format(
-                        other_device, other_mask, device, self.mask,
-                        architecture.name.get())
+                    assert (
+                        device_num != other_device_num
+                    ), f'DeviceID "{other_device}" & mask "{other_mask}" conflicts with deviceId "{device}" & mask "{self.mask}" in architecture "{architecture.name.get()}"'
 
     def maskDeviceId(self):
-        if not self.mask:
-            return ''
-        return ' & ' + self.mask
+        return '' if not self.mask else f' & {self.mask}'
 
 
 class Vendor:
@@ -150,18 +148,18 @@ class Vendor:
                     for other_device_set in self.device_sets:
                         # Only validate device IDs between internal and public device sets.
                         if other_device_set.internal == device_set.internal:
-                            assert device_set.mask != other_device_set.mask, 'Vendor "{}" contained duplicate device masks "{}"'.format(
-                                self.name.get(), device_set.mask)
+                            assert (
+                                device_set.mask != other_device_set.mask
+                            ), f'Vendor "{self.name.get()}" contained duplicate device masks "{device_set.mask}"'
                             other_device_set.validate_devices(
                                 architecture.devices, device_set.mask)
 
-                        # Validate that architecture names are unique between internal and public device sets.
                         else:
                             for other_architecture in other_device_set.architectures:
-                                assert architecture.name.canonical_case(
-                                ) != other_architecture.name.canonical_case(
-                                ), '"{}" is defined as both an internal and public architecture'.format(
-                                    architecture.name.get())
+                                assert (
+                                    architecture.name.canonical_case()
+                                    != other_architecture.name.canonical_case()
+                                ), f'"{architecture.name.get()}" is defined as both an internal and public architecture'
 
                     if device_set.internal:
                         internal_architecture_dict[

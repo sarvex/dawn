@@ -38,8 +38,9 @@ def get_ts_sources():
 
     lines = [l.decode() for l in stdout.splitlines()]
     return [
-        line[len(src_prefix):] for line in lines
-        if line.startswith(src_prefix + 'src/')
+        line[len(src_prefix) :]
+        for line in lines
+        if line.startswith(f'{src_prefix}src/')
     ]
 
 

@@ -65,7 +65,7 @@ def IterateTar(path, compression):
     IterateTar opens the tar.gz or tar.bz2 file at path and returns a generator of
     entry objects for each file in it.
     """
-    with tarfile.open(path, "r:" + compression) as tar_file:
+    with tarfile.open(path, f"r:{compression}") as tar_file:
         for info in tar_file:
             if info.isdir():
                 pass
@@ -75,7 +75,7 @@ def IterateTar(path, compression):
                 yield FileEntry(info.name, info.mode,
                                 tar_file.extractfile(info))
             else:
-                raise ValueError('Unknown entry type "%s"' % (info.name, ))
+                raise ValueError(f'Unknown entry type "{info.name}"')
 
 
 def main(args):
@@ -101,10 +101,10 @@ def main(args):
     with open(archive, "rb") as f:
         sha256 = hashlib.sha256()
         while True:
-            chunk = f.read(1024 * 1024)
-            if not chunk:
+            if chunk := f.read(1024 * 1024):
+                sha256.update(chunk)
+            else:
                 break
-            sha256.update(chunk)
         digest = sha256.hexdigest()
 
     stamp_path = os.path.join(output, ".dawn_archive_digest")
@@ -125,10 +125,10 @@ def main(args):
 
     try:
         if os.path.exists(output):
-            print("Removing %s" % (output, ))
+            print(f"Removing {output}")
             shutil.rmtree(output)
 
-        print("Extracting %s to %s" % (archive, output))
+        print(f"Extracting {archive} to {output}")
         prefix = None
         num_extracted = 0
         for entry in entries:

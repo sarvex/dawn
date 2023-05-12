@@ -38,10 +38,7 @@ class Name:
     def __init__(self, name, native=False):
         self.native = native
         self.name = name
-        if native:
-            self.chunks = [name]
-        else:
-            self.chunks = name.split(' ')
+        self.chunks = [name] if native else name.split(' ')
 
     def get(self):
         return self.name
@@ -114,14 +111,13 @@ class EnumType(Type):
                 self.contiguousFromZero = False
             lastValue = value
             self.values.append(
-                EnumValue(Name(m['name']), value, m.get('valid', True), m))
-
+                EnumValue(Name(m['name']), lastValue, m.get('valid', True), m)
+            )
         # Assert that all values are unique in enums
         all_values = set()
         for value in self.values:
             if value.value in all_values:
-                raise Exception("Duplicate value {} in enum {}".format(
-                    value.value, name))
+                raise Exception(f"Duplicate value {value.value} in enum {name}")
             all_values.add(value.value)
         self.is_wire_transparent = True
 
@@ -240,10 +236,10 @@ class StructureType(Record, Type):
         self.chained = json_data.get('chained', None)
         self.extensible = json_data.get('extensible', None)
         if self.chained:
-            assert self.chained == 'in' or self.chained == 'out'
+            assert self.chained in ['in', 'out']
             assert 'chain roots' in json_data
         if self.extensible:
-            assert self.extensible == 'in' or self.extensible == 'out'
+            assert self.extensible in ['in', 'out']
         # Chained structs inherit from wgpu::ChainedStruct, which has
         # nextInChain, so setting both extensible and chained would result in
         # two nextInChain members.
@@ -305,15 +301,14 @@ def linked_record_members(json_data, types):
                               is_return_value=m.get('is_return_value', False),
                               default_value=m.get('default', None),
                               skip_serialize=m.get('skip_serialize', False))
-        handle_type = m.get('handle_type')
-        if handle_type:
+        if handle_type := m.get('handle_type'):
             member.set_handle_type(types[handle_type])
         members.append(member)
         members_by_name[member.name.canonical_case()] = member
 
     for (member, m) in zip(members, json_data):
         if member.annotation != 'value':
-            if not 'length' in m:
+            if 'length' not in m:
                 if member.type.category != 'object':
                     member.length = "constant"
                     member.constant_length = 1
@@ -437,10 +432,7 @@ def parse_json(json, enabled_tags, disabled_tags=None):
 
     types = {}
 
-    by_category = {}
-    for name in category_to_parser.keys():
-        by_category[name] = []
-
+    by_category = {name: [] for name in category_to_parser}
     for (name, json_data) in json.items():
         if name[0] == '_' or not is_enabled(json_data):
             continue
@@ -467,7 +459,7 @@ def parse_json(json, enabled_tags, disabled_tags=None):
     for function in by_category['function']:
         link_function(function, types)
 
-    for category in by_category.keys():
+    for category in by_category:
         by_category[category] = sorted(
             by_category[category], key=lambda typ: typ.name.canonical_case())
 
@@ -504,8 +496,6 @@ def compute_wire_params(api_params, wire_json):
     types = wire_params['types']
 
     commands = []
-    return_commands = []
-
     wire_json['special items']['client_handwritten_commands'] += wire_json[
         'special items']['client_side_commands']
 
@@ -519,7 +509,7 @@ def compute_wire_params(api_params, wire_json):
             # Other methods must be handwritten.
             is_object = method.return_type.category == 'object'
             is_void = method.return_type.name.canonical_case() == 'void'
-            if not (is_object or is_void):
+            if not is_object and not is_void:
                 assert command_suffix in (
                     wire_json['special items']['client_handwritten_commands'])
                 continue
@@ -550,13 +540,14 @@ def compute_wire_params(api_params, wire_json):
             command.derived_method = method
             commands.append(command)
 
-    for (name, json_data) in wire_json['commands'].items():
-        commands.append(Command(name, linked_record_members(json_data, types)))
-
-    for (name, json_data) in wire_json['return commands'].items():
-        return_commands.append(
-            Command(name, linked_record_members(json_data, types)))
-
+    commands.extend(
+        Command(name, linked_record_members(json_data, types))
+        for name, json_data in wire_json['commands'].items()
+    )
+    return_commands = [
+        Command(name, linked_record_members(json_data, types))
+        for name, json_data in wire_json['return commands'].items()
+    ]
     wire_params['cmd_records'] = {
         'command': commands,
         'return command': return_commands
@@ -634,9 +625,11 @@ def as_protobufTypeLPM(member):
 
 def as_protobufNameLPM(*names):
     # `descriptor` is a reserved keyword in lpm
-    if (names[0].concatcase() == "descriptor"):
-        return "desc"
-    return as_varName(*names)
+    return (
+        "desc"
+        if (names[0].concatcase() == "descriptor")
+        else as_varName(*names)
+    )
 
 
 def unreachable_code():
@@ -653,60 +646,55 @@ def as_varName(*names):
 
 
 def as_cType(c_prefix, name):
-    if name.native:
-        return name.concatcase()
-    else:
-        return c_prefix + name.CamelCase()
+    return name.concatcase() if name.native else c_prefix + name.CamelCase()
 
 
 def as_cppType(name):
-    if name.native:
-        return name.concatcase()
-    else:
-        return name.CamelCase()
+    return name.concatcase() if name.native else name.CamelCase()
 
 
 def as_jsEnumValue(value):
     if 'jsrepr' in value.json_data: return value.json_data['jsrepr']
-    return "'" + value.name.js_enum_case() + "'"
+    return f"'{value.name.js_enum_case()}'"
 
 
 def convert_cType_to_cppType(typ, annotation, arg, indent=0):
     if typ.category == 'native':
         return arg
-    if annotation == 'value':
-        if typ.category == 'object':
-            return '{}::Acquire({})'.format(as_cppType(typ.name), arg)
-        elif typ.category == 'structure':
-            converted_members = [
-                convert_cType_to_cppType(
-                    member.type, member.annotation,
-                    '{}.{}'.format(arg, as_varName(member.name)), indent + 1)
-                for member in typ.members
-            ]
+    if annotation != 'value':
+        return f'reinterpret_cast<{as_cppType(typ.name)} {annotation}>({arg})'
+    if typ.category == 'object':
+        return f'{as_cppType(typ.name)}::Acquire({arg})'
+    elif typ.category == 'structure':
+        converted_members = [
+            convert_cType_to_cppType(
+                member.type,
+                member.annotation,
+                f'{arg}.{as_varName(member.name)}',
+                indent + 1,
+            )
+            for member in typ.members
+        ]
 
-            converted_members = [(' ' * 4) + m for m in converted_members]
-            converted_members = ',\n'.join(converted_members)
+        converted_members = [(' ' * 4) + m for m in converted_members]
+        converted_members = ',\n'.join(converted_members)
 
-            return as_cppType(typ.name) + ' {\n' + converted_members + '\n}'
-        elif typ.category == 'function pointer':
-            return 'reinterpret_cast<{}>({})'.format(as_cppType(typ.name), arg)
-        else:
-            return 'static_cast<{}>({})'.format(as_cppType(typ.name), arg)
+        return as_cppType(typ.name) + ' {\n' + converted_members + '\n}'
+    elif typ.category == 'function pointer':
+        return f'reinterpret_cast<{as_cppType(typ.name)}>({arg})'
     else:
-        return 'reinterpret_cast<{} {}>({})'.format(as_cppType(typ.name),
-                                                    annotation, arg)
+        return f'static_cast<{as_cppType(typ.name)}>({arg})'
 
 
 def decorate(name, typ, arg):
-    if arg.annotation == 'value':
-        return typ + ' ' + name
-    elif arg.annotation == '*':
-        return typ + ' * ' + name
+    if arg.annotation == '*':
+        return f'{typ} * {name}'
     elif arg.annotation == 'const*':
-        return typ + ' const * ' + name
+        return f'{typ} const * {name}'
     elif arg.annotation == 'const*const*':
-        return 'const ' + typ + '* const * ' + name
+        return f'const {typ}* const * {name}'
+    elif arg.annotation == 'value':
+        return f'{typ} {name}'
     else:
         assert False
 
@@ -718,22 +706,19 @@ def annotated(typ, arg):
 
 def item_is_enabled(enabled_tags, json_data):
     tags = json_data.get('tags')
-    if tags is None: return True
-    return any(tag in enabled_tags for tag in tags)
+    return True if tags is None else any(tag in enabled_tags for tag in tags)
 
 
 def item_is_disabled(disabled_tags, json_data):
     if disabled_tags is None: return False
     tags = json_data.get('tags')
-    if tags is None: return False
-
-    return any(tag in disabled_tags for tag in tags)
+    return False if tags is None else any(tag in disabled_tags for tag in tags)
 
 
 def as_cppEnum(value_name):
     assert not value_name.native
     if value_name.concatcase()[0].isdigit():
-        return "e" + value_name.CamelCase()
+        return f"e{value_name.CamelCase()}"
     return value_name.CamelCase()
 
 
@@ -744,9 +729,9 @@ def as_MethodSuffix(type_name, method_name):
 
 def as_frontendType(metadata, typ):
     if typ.category == 'object':
-        return typ.name.CamelCase() + 'Base*'
+        return f'{typ.name.CamelCase()}Base*'
     elif typ.category in ['bitmask', 'enum']:
-        return metadata.namespace + '::' + typ.name.CamelCase()
+        return f'{metadata.namespace}::{typ.name.CamelCase()}'
     elif typ.category == 'structure':
         return as_cppType(typ.name)
     else:
@@ -755,7 +740,7 @@ def as_frontendType(metadata, typ):
 
 def as_wireType(metadata, typ):
     if typ.category == 'object':
-        return typ.name.CamelCase() + '*'
+        return f'{typ.name.CamelCase()}*'
     elif typ.category in ['bitmask', 'enum', 'structure']:
         return metadata.c_prefix + typ.name.CamelCase()
     else:
@@ -799,7 +784,7 @@ def make_base_render_params(metadata):
 
     def as_cTypeEnumSpecialCase(typ):
         if typ.category == 'bitmask':
-            return as_cType(c_prefix, typ.name) + 'Flags'
+            return f'{as_cType(c_prefix, typ.name)}Flags'
         return as_cType(c_prefix, typ.name)
 
     def as_cEnum(type_name, value_name):
@@ -816,7 +801,7 @@ def make_base_render_params(metadata):
         return c_method
 
     def as_cProc(type_name, method_name):
-        c_proc = c_prefix + 'Proc'
+        c_proc = f'{c_prefix}Proc'
         if type_name != None:
             assert not type_name.native
             c_proc += type_name.CamelCase()

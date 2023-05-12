@@ -42,8 +42,7 @@ def list_spvasm_files(root_search_dir):
 
 def main():
     if len(sys.argv) != 4:
-        print("Usage: " + sys.argv[0] +
-              " <input dir> <output dir> <spirv-as path>")
+        print(f"Usage: {sys.argv[0]} <input dir> <output dir> <spirv-as path>")
         return 1
     input_dir: str = os.path.abspath(sys.argv[1].rstrip(os.sep))
     corpus_dir: str = os.path.abspath(sys.argv[2])
@@ -80,8 +79,9 @@ def main():
                 cmd) + ": " + stdout.decode('utf-8') + stderr.decode('utf-8')
 
     if num_errors > max_tolerated_errors:
-        print("Too many (" + str(num_errors) +
-              ") errors occured while generating the SPIR-V corpus.")
+        print(
+            f"Too many ({str(num_errors)}) errors occured while generating the SPIR-V corpus."
+        )
         print(logged_errors)
         return 1
 

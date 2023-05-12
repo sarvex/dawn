@@ -67,10 +67,7 @@ NONINCLUSIVE_REGEXES = [
     r"(?i)red[-_]?line",
 ]
 
-NONINCLUSIVE_REGEX_LIST = []
-for reg in NONINCLUSIVE_REGEXES:
-    NONINCLUSIVE_REGEX_LIST.append(re.compile(reg))
-
+NONINCLUSIVE_REGEX_LIST = [re.compile(reg) for reg in NONINCLUSIVE_REGEXES]
 LINT_FILTERS = []
 
 
@@ -80,15 +77,12 @@ def _CheckNonInclusiveLanguage(input_api, output_api, source_file_filter=None):
     matches = []
     for f in input_api.AffectedFiles(include_deletes=False,
                                      file_filter=source_file_filter):
-        line_num = 0
-        for line in f.NewContents():
-            line_num += 1
+        for line_num, line in enumerate(f.NewContents(), start=1):
             for reg in NONINCLUSIVE_REGEX_LIST:
-                match = reg.search(line)
-                if match:
+                if match := reg.search(line):
                     matches.append(
-                        "{} ({}): found non-inclusive language: {}".format(
-                            f.LocalPath(), line_num, match.group(0)))
+                        f"{f.LocalPath()} ({line_num}): found non-inclusive language: {match.group(0)}"
+                    )
 
     if len(matches):
         return [
@@ -141,9 +135,9 @@ def _CheckNoStaleGen(input_api, output_api):
             cwd=input_api.change.RepositoryRoot())
     except input_api.subprocess.CalledProcessError as e:
         if input_api.is_committing:
-            results.append(output_api.PresubmitError('%s' % (e, )))
+            results.append(output_api.PresubmitError(f'{e}'))
         else:
-            results.append(output_api.PresubmitPromptWarning('%s' % (e, )))
+            results.append(output_api.PresubmitPromptWarning(f'{e}'))
     return results
 
 

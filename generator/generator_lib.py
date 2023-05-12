@@ -288,20 +288,19 @@ def run_generator(generator):
         ]
         dependencies += _compute_python_dependencies(args.root_dir)
 
-        if args.depfile != None:
-            with open(args.depfile, 'w') as f:
-                f.write(args.output_json_tarball + ": " +
-                        " ".join(dependencies))
+    if args.depfile != None:
+        with open(args.depfile, 'w') as f:
+            f.write((f"{args.output_json_tarball}: " + " ".join(dependencies)))
 
-        if args.print_cmake_dependencies:
-            sys.stdout.write(";".join(dependencies))
-            return 0
+    if args.print_cmake_dependencies:
+        sys.stdout.write(";".join(dependencies))
+        return 0
 
     # The caller wants to assert that the outputs are what it expects.
     # Load the file and compare with our renders.
     if args.expected_outputs_file != None:
         with open(args.expected_outputs_file) as f:
-            expected = set([line.strip() for line in f.readlines()])
+            expected = {line.strip() for line in f.readlines()}
 
         actual = {render.output for render in renders}
 
@@ -322,10 +321,7 @@ def run_generator(generator):
 
     # Output the JSON tarball
     if args.output_json_tarball != None:
-        json_root = {}
-        for output in outputs:
-            json_root[output.name] = output.content
-
+        json_root = {output.name: output.content for output in outputs}
         with open(args.output_json_tarball, 'w') as f:
             f.write(json.dumps(json_root))
 

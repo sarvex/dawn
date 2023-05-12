@@ -111,7 +111,8 @@ def __lldb_init_module(debugger, dict):
 def attach_synthetic_to_type(synth_class, type_name, is_regex=False):
     global module, tint_category
     synth = lldb.SBTypeSynthetic.CreateWithClassName(
-        __name__ + '.' + synth_class.__name__)
+        f'{__name__}.{synth_class.__name__}'
+    )
     synth.SetOptions(lldb.eTypeOptionCascade)
     ret = tint_category.AddTypeSynthetic(
         lldb.SBTypeNameSpecifier(type_name, is_regex), synth)
@@ -120,8 +121,9 @@ def attach_synthetic_to_type(synth_class, type_name, is_regex=False):
 
     def summary_fn(valobj, dict): return get_synth_summary(
         synth_class, valobj, dict)
+
     # LLDB accesses summary fn's by name, so we need to create a unique one.
-    summary_fn.__name__ = '_get_synth_summary_' + synth_class.__name__
+    summary_fn.__name__ = f'_get_synth_summary_{synth_class.__name__}'
     setattr(module, summary_fn.__name__, summary_fn)
     attach_summary_to_type(summary_fn, type_name, is_regex)
 
@@ -129,7 +131,8 @@ def attach_synthetic_to_type(synth_class, type_name, is_regex=False):
 def attach_summary_to_type(summary_fn, type_name, is_regex=False):
     global module, tint_category
     summary = lldb.SBTypeSummary.CreateWithFunctionName(
-        __name__ + '.' + summary_fn.__name__)
+        f'{__name__}.{summary_fn.__name__}'
+    )
     summary.SetOptions(lldb.eTypeOptionCascade)
     ret = tint_category.AddTypeSummary(
         lldb.SBTypeNameSpecifier(type_name, is_regex), summary)
@@ -223,7 +226,7 @@ class UtilsSlicePrinter(Printer):
         self.elem_size = self.elem_type.GetByteSize()
 
     def get_summary(self):
-        return 'length={} capacity={}'.format(self.len.GetValueAsUnsigned(), self.cap.GetValueAsUnsigned())
+        return f'length={self.len.GetValueAsUnsigned()} capacity={self.cap.GetValueAsUnsigned()}'
 
     def num_children(self):
         # NOTE: VS Code on MacOS hangs if we try to expand something too large, so put an artificial limit
@@ -239,7 +242,7 @@ class UtilsSlicePrinter(Printer):
                 return None
             # TODO: return self.value_at(index)
             offset = index * self.elem_size
-            return self.data.CreateChildAtOffset('[%s]' % index, offset, self.elem_type)
+            return self.data.CreateChildAtOffset(f'[{index}]', offset, self.elem_type)
         except Exception as e:
             log.error('%s', e)
             raise
@@ -247,7 +250,7 @@ class UtilsSlicePrinter(Printer):
     def value_at(self, index):
         '''Returns array value at index'''
         offset = index * self.elem_size
-        return self.data.CreateChildAtOffset('[%s]' % index, offset, self.elem_type)
+        return self.data.CreateChildAtOffset(f'[{index}]', offset, self.elem_type)
 
 
 class UtilsVectorPrinter(Printer):
@@ -261,7 +264,7 @@ class UtilsVectorPrinter(Printer):
 
     def get_summary(self):
         using_heap = self.cap.GetValueAsUnsigned() > self.fixed_size
-        return 'heap={} {}'.format(using_heap, self.slice_printer.get_summary())
+        return f'heap={using_heap} {self.slice_printer.get_summary()}'
 
     def num_children(self):
         return self.slice_printer.num_children()
@@ -285,7 +288,7 @@ class UtilsVectorRefPrinter(Printer):
         self.can_move = self.member('can_move_')
 
     def get_summary(self):
-        return 'can_move={} {}'.format(self.can_move.GetValue(), self.slice_printer.get_summary())
+        return f'can_move={self.can_move.GetValue()} {self.slice_printer.get_summary()}'
 
     def num_children(self):
         return self.slice_printer.num_children()
@@ -315,7 +318,7 @@ class UtilsHashmapBasePrinter(Printer):
         return False
 
     def get_summary(self):
-        return 'length={}'.format(self.num_children())
+        return f'length={self.num_children()}'
 
     def num_children(self):
         return len(self.valid_slots)
@@ -335,7 +338,7 @@ class UtilsHashmapBasePrinter(Printer):
             # the default printer for std::optional.
             kvp = slot, entry
 
-        return kvp[1].CreateChildAtOffset('[{}]'.format(kvp[0]), 0, kvp[1].GetType())
+        return kvp[1].CreateChildAtOffset(f'[{kvp[0]}]', 0, kvp[1].GetType())
 
     def try_read_std_optional(self, slot, entry):
         return None
@@ -353,9 +356,7 @@ class UtilsHashsetPrinter(UtilsHashmapBasePrinter):
 
             # libstdc++
             v = entry.EvaluateExpression('_M_payload._M_payload._M_value')
-            if v.name is not None:
-                return slot, v
-            return None
+            return (slot, v) if v.name is not None else None
         except:
             return None
 
@@ -376,8 +377,6 @@ class UtilsHashmapPrinter(UtilsHashsetPrinter):
             val = entry.EvaluateExpression('_M_payload._M_payload._M_value')
             k = val.EvaluateExpression('key')
             v = val.EvaluateExpression('value')
-            if k.name is not None and v.name is not None:
-                return k.GetValue(), v
-            return None
+            return (k.GetValue(), v) if k.name is not None and v.name is not None else None
         except:
             return None

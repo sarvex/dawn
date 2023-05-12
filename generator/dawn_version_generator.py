@@ -18,12 +18,10 @@ import os, subprocess, sys, shutil
 from generator_lib import Generator, run_generator, FileRender
 
 def get_git():
-    # Will find git, git.exe, git.bat...
-    git_exec = shutil.which("git")
-    if not git_exec:
+    if git_exec := shutil.which("git"):
+        return git_exec
+    else:
         raise Exception("No git executable found")
-
-    return git_exec
 
 
 def get_git_hash(dawn_dir):
@@ -86,8 +84,7 @@ def get_git_resolved_head(dawn_dir):
 
 
 def get_version(args):
-    version_file = args.version_file
-    if version_file:
+    if version_file := args.version_file:
         with open(version_file) as f:
             return f.read()
     return get_git_hash(os.path.abspath(args.dawn_dir))
@@ -122,9 +119,7 @@ class DawnVersionGenerator(Generator):
 
     def get_dependencies(self, args):
         dawn_dir = os.path.abspath(args.dawn_dir)
-        version_file = args.version_file
-
-        if version_file:
+        if version_file := args.version_file:
             return [version_file]
         if git_exists(dawn_dir):
             try:

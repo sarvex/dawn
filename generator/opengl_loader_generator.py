@@ -23,7 +23,7 @@ from generator_lib import Generator, run_generator, FileRender
 class ProcName:
     def __init__(self, gl_name, proc_name=None):
         assert gl_name.startswith('gl')
-        if proc_name == None:
+        if proc_name is None:
             proc_name = gl_name[2:]
 
         self.gl_name = gl_name
@@ -36,10 +36,10 @@ class ProcName:
         return self.proc_name
 
     def PFNPROCNAME(self):
-        return 'PFN' + self.gl_name.upper() + 'PROC'
+        return f'PFN{self.gl_name.upper()}PROC'
 
     def __repr__(self):
-        return 'Proc("{}", "{}")'.format(self.gl_name, self.proc_name)
+        return f'Proc("{self.gl_name}", "{self.proc_name}")'
 
 
 ProcParam = namedtuple('ProcParam', ['name', 'type'])
@@ -93,10 +93,10 @@ class Proc:
         return self.gl_name[2:]
 
     def PFNGLPROCNAME(self):
-        return 'PFN' + self.gl_name.upper() + 'PROC'
+        return f'PFN{self.gl_name.upper()}PROC'
 
     def __repr__(self):
-        return 'Proc("{}")'.format(self.gl_name)
+        return f'Proc("{self.gl_name}")'
 
 
 EnumDefine = namedtuple('EnumDefine', ['name', 'value'])
@@ -141,7 +141,7 @@ def compute_params(root, supported_extensions):
             section_procs = []
             for command in section.findall('./require/command'):
                 proc_name = command.attrib['name']
-                assert all_procs[proc_name].alias == None
+                assert all_procs[proc_name].alias is None
                 if proc_name not in removed_procs:
                     section_procs.append(all_procs[proc_name])
 
@@ -165,7 +165,7 @@ def compute_params(root, supported_extensions):
         section_procs = []
         for command in section.findall('./require/command'):
             proc_name = command.attrib['name']
-            assert all_procs[proc_name].alias == None
+            assert all_procs[proc_name].alias is None
             section_procs.append(all_procs[proc_name])
 
         section_enums = []
@@ -192,17 +192,17 @@ def compute_params(root, supported_extensions):
     def add_header_block(description, block):
         block_procs = []
         for proc in block.procs:
-            if not proc.glProcName() in already_added_header_procs:
+            if proc.glProcName() not in already_added_header_procs:
                 already_added_header_procs.add(proc.glProcName())
                 block_procs.append(proc)
 
         block_enums = []
         for enum in block.enums:
-            if not enum.name in already_added_header_enums:
+            if enum.name not in already_added_header_enums:
                 already_added_header_enums.add(enum.name)
                 block_enums.append(enum)
 
-        if len(block_procs) > 0 or len(block_enums) > 0:
+        if block_procs or block_enums:
             header_blocks.append(
                 HeaderBlock(description, block_procs, block_enums))
 
